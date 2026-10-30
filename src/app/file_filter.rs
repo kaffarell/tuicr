@@ -50,8 +50,7 @@ impl App {
     /// not-shown would collapse the progress fraction to `0/n`.
     pub fn file_passes_filter(&self, file: &DiffFile) -> bool {
         self.file_matches_patterns(file)
-            && (self.file_filter.show_reviewed
-                || !self.session.is_file_reviewed(file.display_path()))
+            && (self.file_filter.show_reviewed || !self.is_diff_file_reviewed(file))
     }
 
     /// `file_passes_filter` by index, for the loops that only carry an index.

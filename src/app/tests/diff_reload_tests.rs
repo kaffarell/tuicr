@@ -1172,3 +1172,88 @@ fn should_not_resurrect_an_externally_cleared_hunk_mark_when_saving() {
         expected
     );
 }
+
+#[test]
+fn reviewed_files_survive_selection_switches_write_and_reopen() {
+    let _reviews = TestReviewsDir::new();
+    let full = make_diff_file("a.rs", FileStatus::Modified, 1);
+    let subset = make_diff_file("a.rs", FileStatus::Modified, 2);
+    let path = full.display_path().clone();
+    let mut app = build_app_with_scripted_vcs(vec![full.clone()], ScriptedVcs::new());
+    app.session.diff_source = SessionDiffSource::CommitRange;
+    app.session.commit_range = Some(vec!["c1".into(), "c2".into()]);
+    app.diff_source = DiffSource::CommitRange(vec!["c1".into(), "c2".into()]);
+    app.review_commits = vec![make_commit_info("c2"), make_commit_info("c1")];
+    app.range_diff_files = Some(vec![full.clone()]);
+    app.commit_diff_cache.insert((0, 0), vec![subset.clone()]);
+    app.commit_selection_range = Some((0, 1));
+    app.toggle_reviewed_for_file_idx(0, false);
+    app.save_current_session_merging_external().unwrap();
+
+    app.commit_selection_range = Some((0, 0));
+    app.reload_inline_selection().unwrap();
+    assert!(
+        !app.is_diff_file_reviewed(&subset),
+        "a different diff needs its own review"
+    );
+    let index = app
+        .diff_files
+        .iter()
+        .position(|file| file.display_path() == &path)
+        .unwrap();
+    app.toggle_reviewed_for_file_idx(index, false);
+    app.save_current_session_merging_external().unwrap();
+
+    app.commit_selection_range = Some((0, 1));
+    app.reload_inline_selection().unwrap();
+    assert!(
+        app.is_diff_file_reviewed(&full),
+        "returning to the range must restore its mark"
+    );
+    let saved_path = app.save_current_session_merging_external().unwrap();
+    let mut reopened = crate::persistence::storage::load_session(&saved_path).unwrap();
+    reopened.add_diff_file(&full);
+    assert!(reopened.is_file_reviewed(&path));
+    reopened.add_diff_file_preserving_hunks(&subset);
+    assert!(
+        reopened.files[&path].is_content_reviewed(subset.content_hash),
+        "the saved subset mark must also survive reopening"
+    );
+    assert_eq!(reopened.files[&path].content_hash, Some(full.content_hash));
+
+    // An unreviewed revision must not inherit approval, but archived marks
+    // still count as saved progress and must not be deleted as an empty session.
+    reopened.add_file(path.clone(), FileStatus::Modified, 3);
+    assert!(!reopened.is_file_reviewed(&path));
+    assert!(reopened.has_reviewed_state());
+    assert_eq!(
+        reopened.reviewed_count(),
+        0,
+        "progress counts only the diff on screen"
+    );
+    reopened.clear_comments(ClearScope::CommentsAndReviewed);
+    reopened.add_diff_file(&full);
+    assert!(!reopened.is_file_reviewed(&path));
+    assert!(!reopened.has_reviewed_state());
+}
+
+#[test]
+fn worktree_reviews_drop_marks_for_content_that_changed() {
+    let mut session = ReviewSession::new(
+        PathBuf::from("/repo"),
+        "abc1234".to_string(),
+        None,
+        SessionDiffSource::WorkingTree,
+    );
+    let path = PathBuf::from("a.rs");
+    session.add_file(path.clone(), FileStatus::Modified, 1);
+    session.get_file_mut(&path).unwrap().set_reviewed(true);
+    session.add_file(path.clone(), FileStatus::Modified, 2);
+    session.get_file_mut(&path).unwrap().set_reviewed(true);
+    session.add_file(path.clone(), FileStatus::Modified, 3);
+
+    let review = &session.files[&path];
+    assert!(!review.reviewed);
+    assert!(review.reviewed_content_hashes.is_empty());
+    assert!(!session.has_reviewed_state());
+}

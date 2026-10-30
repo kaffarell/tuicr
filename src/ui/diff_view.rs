@@ -35,7 +35,7 @@ pub(super) const REVIEWED_BANNER_TEXT: &str = "  Marked reviewed -- r to re-open
 /// single width computation (`row_height`).
 pub(super) fn file_header_prefix_text(app: &App, file: &DiffFile) -> String {
     let path = file.display_path();
-    let is_reviewed = app.session.is_file_reviewed(path);
+    let is_reviewed = app.is_diff_file_reviewed(file);
     let review_mark = if is_reviewed { "✓ " } else { "" };
     if file.is_commit_message || app.is_pristine_mode {
         format!("═══ {}{} ", review_mark, path.display())
@@ -1486,7 +1486,7 @@ pub(super) fn append_file_preamble<'a>(
     if app.should_collapse_file(file_idx) {
         return FileBody::Collapsed;
     }
-    if app.session.is_file_reviewed(path) && app.is_single_file_view {
+    if app.is_diff_file_reviewed(file) && app.is_single_file_view {
         let indicator = cursor_indicator(*line_idx, current_line_idx);
         lines.push(Line::from(vec![
             Span::styled(indicator, styles::current_line_indicator_style(&app.theme)),

@@ -197,7 +197,7 @@ impl App {
             if self.should_collapse_file(file_idx) {
                 continue;
             }
-            if self.session.is_file_reviewed(path) && self.is_single_file_view {
+            if self.is_diff_file_reviewed(file) && self.is_single_file_view {
                 self.line_annotations
                     .push(AnnotatedLine::ReviewedBanner { file_idx });
             }

@@ -31,11 +31,10 @@ impl App {
             return;
         }
         let reviewed_paths: Vec<_> = self
-            .session
-            .files
+            .diff_files
             .iter()
-            .filter(|(_, review)| review.reviewed)
-            .map(|(path, _)| path.clone())
+            .filter(|file| !file.is_commit_message && self.is_diff_file_reviewed(file))
+            .map(|file| file.display_path().clone())
             .collect();
         if reviewed_paths.is_empty() {
             self.set_warning("No reviewed files to stage");
@@ -345,17 +344,15 @@ impl App {
     }
 
     pub fn toggle_reviewed_for_file_idx(&mut self, file_idx: usize, adjust_cursor: bool) {
-        let Some(path) = self
-            .diff_files
-            .get(file_idx)
-            .map(|file| file.display_path().clone())
-        else {
+        let Some(file) = self.diff_files.get(file_idx) else {
             return;
         };
+        let path = file.display_path().clone();
+        let hash = file.content_hash;
 
         self.revealed_reviewed_file = None;
         if let Some(review) = self.session.get_file_mut(&path) {
-            review.reviewed = !review.reviewed;
+            review.set_content_reviewed(hash, !review.is_content_reviewed(hash));
             self.dirty = true;
 
             // Update current_file_idx before rebuilding annotations:
@@ -462,6 +459,13 @@ impl App {
         self.session.is_hunk_reviewed(&path, &key)
     }
 
+    pub fn is_diff_file_reviewed(&self, file: &DiffFile) -> bool {
+        self.session
+            .files
+            .get(file.display_path())
+            .is_some_and(|review| review.is_content_reviewed(file.content_hash))
+    }
+
     /// Whether a reviewed file should currently hide its body. Summary jumps
     /// may temporarily reveal one reviewed file in the continuous diff without
     /// changing the persisted reviewed marker.
@@ -474,7 +478,7 @@ impl App {
             return false;
         };
         let path = file.display_path();
-        self.session.is_file_reviewed(path) && self.revealed_reviewed_file.as_ref() != Some(path)
+        self.is_diff_file_reviewed(file) && self.revealed_reviewed_file.as_ref() != Some(path)
     }
 
     pub(in crate::app) fn reveal_reviewed_file(&mut self, file_idx: usize) {
@@ -573,10 +577,7 @@ impl App {
         // the count.
         self.diff_files
             .iter()
-            .filter(|file| {
-                self.file_matches_patterns(file)
-                    && self.session.is_file_reviewed(file.display_path())
-            })
+            .filter(|file| self.file_matches_patterns(file) && self.is_diff_file_reviewed(file))
             .count()
     }
 

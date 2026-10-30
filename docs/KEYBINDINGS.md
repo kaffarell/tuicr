@@ -152,6 +152,10 @@ considers files that pass the active filters.
 | `<leader>n` | Toggle relative line numbers (also `:set relativenumber!`) |
 | `Enter` | Select file (when file list is focused) |
 
+File-reviewed marks are saved per diff content: switching between an individual
+commit and the full range does not erase either view's progress. `:w` retains
+those marks across reopening. A different, unreviewed diff stays pending;
+unmarking with `r` affects the current diff, while `:clear` clears all marks.
 ## Comment navigator
 
 Shown below the file tree when local comments or visible remote PR threads exist.
@@ -395,10 +399,6 @@ on a commit message in a pull request are submitted in the review summary rather
 When a pull request opens with a narrowed range, the message appears once the selected range has
 loaded. When the PR's diff base or its known commit list changes, a reload resets the selection to
 all commits.
-
-Reviewed marks belong to the whole review, not to the selected commits: pressing `r` on a file
-while narrowed to one commit marks the entire cumulative file, and the mark stays when you
-widen or change the selection.
 
 | Key | Action |
 |-----|--------|

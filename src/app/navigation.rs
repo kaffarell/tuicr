@@ -1472,7 +1472,7 @@ impl App {
         if !self.file_passes_filter(file) {
             return 0;
         }
-        let banner = if self.session.is_file_reviewed(file.display_path()) {
+        let banner = if self.is_diff_file_reviewed(file) {
             1
         } else {
             0

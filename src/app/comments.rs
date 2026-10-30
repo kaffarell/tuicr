@@ -401,9 +401,9 @@ impl App {
         self.is_single_file_view = false;
         self.revealed_reviewed_file = None;
         self.revealed_reviewed_hunk = None;
-        if let Some((file_idx, path)) = &target_file {
+        if let Some((file_idx, _)) = &target_file {
             self.diff_state.current_file_idx = *file_idx;
-            if self.session.is_file_reviewed(path) {
+            if self.is_diff_file_reviewed(&self.diff_files[*file_idx]) {
                 self.reveal_reviewed_file(*file_idx);
             }
         }

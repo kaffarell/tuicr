@@ -950,9 +950,8 @@ fn should_keep_commit_only_hunk_marks_when_widening_to_the_cached_pr_diff() {
     );
 }
 
-/// `r` pressed while narrowed to one commit marks the file in the cumulative
-/// review. Widening back must keep that mark: the subset hash must not
-/// overwrite the cumulative `content_hash` (which would invalidate it).
+/// `r` pressed while narrowed to one commit marks only the displayed diff.
+/// Widening preserves the mark without overwriting the cumulative hash.
 #[test]
 fn should_keep_a_mark_made_while_narrowed_after_widening_back() {
     let mut app = build_app(vec![normal_commit("c2"), normal_commit("c1")]);
@@ -969,14 +968,15 @@ fn should_keep_a_mark_made_while_narrowed_after_widening_back() {
     app.reload_inline_selection().unwrap();
 
     app.toggle_reviewed_for_file_idx(loaded_file_idx(&app, &path), true);
-    assert!(app.session.is_file_reviewed(&path));
+    assert!(app.is_diff_file_reviewed(&app.diff_files[loaded_file_idx(&app, &path)]));
     app.commit_selection_range = Some((0, 1));
     app.reload_inline_selection().unwrap();
 
     assert!(
-        app.session.is_file_reviewed(&path),
+        app.session.files[&path].is_content_reviewed(99),
         "mark made while narrowed must survive widening"
     );
+    assert!(!app.is_diff_file_reviewed(&app.diff_files[loaded_file_idx(&app, &path)]));
     assert_eq!(app.session.files[&path].content_hash, Some(7));
 }
 

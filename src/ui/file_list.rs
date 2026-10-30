@@ -94,7 +94,7 @@ pub(super) fn render_file_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 FileTreeItem::File { file_idx, depth } => {
                     let file = &app.diff_files[*file_idx];
                     let path = file.display_path();
-                    let is_reviewed = app.session.is_file_reviewed(path);
+                    let is_reviewed = app.is_diff_file_reviewed(file);
                     let checkbox = if is_reviewed {
                         REVIEWED_BOX
                     } else {
