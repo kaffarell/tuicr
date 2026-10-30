@@ -136,10 +136,31 @@ considers files that pass the active filters.
 | `<leader>n` | Toggle relative line numbers (also `:set relativenumber!`) |
 | `Enter` | Select file (when file list is focused) |
 
+## Commit review indicators
+
+In the inline commit pane only, review progress appears immediately to the left
+of the selection box:
+
+| Marker | Meaning |
+|--------|---------|
+| Blank | No comments/review notes and no file or hunk review progress |
+| Yellow `!` | Comments/review notes exist, or review has started but not every changed file is marked reviewed |
+| Green `✓` | Every changed file is marked reviewed with `r`, without comments/review notes |
+| Green `▣` / yellow `▢` | Selected / unselected commit; independent of review progress |
+
+The startup commit picker does not show local review progress. All individual
+commit file populations are prepared together in the background when opening
+the review, not on demand as `(`/`)` visits each commit. Until preparation
+finishes (or if it fails), the indicator stays blank unless feedback already
+identifies that commit. Hunk marks count as partial progress, not file approval.
+Comments and review marks belonging to another commit do not count. The separate
+forge-provided `✓` after the box still indicates prior PR review coverage.
+
 File-reviewed marks are saved per diff content: switching between an individual
 commit and the full range does not erase either view's progress. `:w` retains
 those marks across reopening. A different, unreviewed diff stays pending;
 unmarking with `r` affects the current diff, while `:clear` clears all marks.
+
 ## Comment navigator
 
 Shown below the file tree when local comments or visible remote PR threads exist.

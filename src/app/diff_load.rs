@@ -756,6 +756,7 @@ impl App {
     /// reached from a background result must check relevance first, which
     /// `poll_diff_watch_changes` does via `diff_watch_result_is_stale`.
     fn apply_diff_files(&mut self, diff_files: Vec<DiffFile>) -> (usize, usize) {
+        self.commit_review_preparation = None;
         let current_path = self.current_file_path().cloned();
         let prev_file_idx = self.diff_state.current_file_idx;
         let prev_cursor_line = self.diff_state.cursor_line;

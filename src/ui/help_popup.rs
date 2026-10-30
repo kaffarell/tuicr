@@ -307,6 +307,9 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         )),
         Line::from(""),
         Line::from(Span::raw(
+            "  Left of box: blank untouched, ! feedback/partial review, ✓ fully reviewed without feedback.",
+        )),
+        Line::from(Span::raw(
             "  ✓ marks commits covered by your latest submitted review.",
         )),
         Line::from(vec![

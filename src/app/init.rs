@@ -629,6 +629,7 @@ impl App {
             commit_selection_start: CommitSelectionStart::default(),
             initial_comments_visibility: None,
             commit_diff_cache: HashMap::new(),
+            commit_review_preparation: None,
             range_diff_files: None,
             saved_inline_selection: None,
             path_filter: path_filter.map(|s| s.to_string()),

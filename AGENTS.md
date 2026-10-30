@@ -19,6 +19,7 @@ src/
 │   └── mod.rs           # User config loading (XDG on Unix, %APPDATA% on Windows)
 ├── app.rs               # Application state (App struct, InputMode, etc.)
 │   ├── coloring.rs      # Render-time syntax coloring of hunks near the viewport
+│   ├── commit_status.rs # Eager background preparation of commit review file populations
 │   ├── editor_target.rs # Read-only snapshots of a PR revision for `$EDITOR`
 │   └── file_filter.rs   # File-tree include/exclude regex filters + `/` path search
 ├── error.rs             # Error types (TuicrError enum)
@@ -139,6 +140,19 @@ Repository-managed agent integrations:
 - Contains: `vcs` (Box<dyn VcsBackend>), `vcs_info`, `session`, `diff_files`, `input_mode`, scroll/cursor state
 - PR mode also carries `pr_info: Option<PullRequestInfo>` and `viewing_pr_info: bool` for the file-tree "PR Description" panel
 - Methods: `scroll_down/up`, `next/prev_file`, `next/prev_hunk`, `go_to_source_line`, `toggle_reviewed`, `save_comment`, `jump_to_pr_info`
+- `commit_status.rs` prepares all individual commit file fingerprints in one
+  background batch when entering/changing a review, independently of selection.
+  The main loop polls the batch before rendering; VCS I/O stays off the render
+  path, and forge patches are parsed on the main thread. Results are scoped to
+  the diff source, commit IDs, and full-diff fingerprint, so obsolete requests
+  cannot affect another review. Explicit diff reloads invalidate preparation.
+  `commit_review_status` combines those fingerprints with live comments and
+  per-hash file marks and precomputed hunk keys: blank for no applicable feedback
+  or review activity, yellow `!` for feedback/partial progress, green `✓` for
+  every file reviewed without feedback. Unknown populations stay blank unless
+  feedback identifies the commit. Only the inline pane requests this
+  indicator, immediately before the selection box. Startup picker boxes and
+  inline boxes still show selection, not review progress.
 - The inline commit renderer keeps `commit_list_scroll_offset` in display space
   and keeps the cursor visible in both sort orders. Cycling with `(`/`)` moves
   the cursor without going through ordinary list up/down scrolling.

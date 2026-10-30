@@ -100,6 +100,13 @@ review when that metadata is available; commits already covered by that review a
 `✓` in the inline selector.
 (Bitbucket does not record which commit an approval covered, so that preselection does not apply
 there.)
+The inline commit pane keeps green boxes for selected commits and adds a separate
+review indicator to their left: yellow `!` for comments or partial review,
+green `✓` when every changed file is reviewed without comments or review notes.
+Commits with no comments and no file/hunk review progress have no indicator.
+The startup commit picker only shows selection, not these review indicators.
+Commit review populations are prepared together in the background when a review
+opens, so their indicators do not depend on visiting commits with `(`/`)`.
 File-reviewed marks survive switching commit selections and `:w`/reopening;
 reviewing one diff does not mark a different diff of the same file reviewed.
 Use `:summary` during a review to show every pending local-draft comment. The summary replaces the

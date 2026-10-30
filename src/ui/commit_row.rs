@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
-use crate::app::{STAGED_SELECTION_ID, UNSTAGED_SELECTION_ID};
+use crate::app::{CommitReviewStatus, STAGED_SELECTION_ID, UNSTAGED_SELECTION_ID};
 use crate::theme::Theme;
 use crate::ui::styles;
 use crate::ui::text_utils::{truncate_or_pad, truncate_str};
@@ -37,6 +37,8 @@ pub struct CommitRowSpec<'a> {
     pub is_cursor: bool,
     pub is_selected: bool,
     pub is_reviewed: bool,
+    /// Local progress is only shown in the inline pane, not the startup picker.
+    pub review_status: Option<CommitReviewStatus>,
     pub theme: &'a Theme,
 }
 
@@ -68,6 +70,14 @@ pub fn render_commit_row<'a>(spec: &CommitRowSpec<'a>) -> Line<'a> {
         },
         styles::range_bar_style(theme),
     ));
+    if let Some(status) = spec.review_status {
+        let (glyph, style) = match status {
+            CommitReviewStatus::Empty => ("  ", row_text_style),
+            CommitReviewStatus::NeedsAttention => ("! ", styles::pending_style(theme)),
+            CommitReviewStatus::Reviewed => (REVIEWED_LABEL, styles::reviewed_style(theme)),
+        };
+        spans.push(Span::styled(glyph, style));
+    }
     spans.push(Span::styled(
         if spec.is_selected {
             format!("{SELECTED_BOX_GLYPH} ")
@@ -135,8 +145,11 @@ pub fn render_commit_row<'a>(spec: &CommitRowSpec<'a>) -> Line<'a> {
         when
     );
     let hash_col_width = hash_content_width + 1;
-    let (branch_col_width, summary_col_width) =
-        commit_column_widths(spec.available_width as usize, hash_col_width);
+    let (branch_col_width, summary_col_width) = commit_column_widths(
+        (spec.available_width as usize)
+            .saturating_sub(usize::from(spec.review_status.is_some()) * 2),
+        hash_col_width,
+    );
 
     // Branch column: always branch_col_width cells. With a branch we render
     // `[<name>]` padded out with trailing spaces; without one we render
@@ -270,11 +283,75 @@ mod tests {
                 is_cursor: false,
                 is_selected: false,
                 is_reviewed: false,
+                review_status: None,
                 theme: &theme,
             }));
 
             // then
             assert!(text.contains(short_id), "missing {short_id:?} in {text:?}");
+        }
+    }
+
+    #[test]
+    fn should_put_inline_progress_left_of_selection_without_changing_boxes() {
+        let theme = Theme::dark();
+        let c = commit("abc1234", "Add feature", None);
+        for is_selected in [false, true] {
+            for status in [
+                None,
+                Some(CommitReviewStatus::Empty),
+                Some(CommitReviewStatus::NeedsAttention),
+                Some(CommitReviewStatus::Reviewed),
+            ] {
+                let line = render_commit_row(&CommitRowSpec {
+                    commit: &c,
+                    available_width: 107,
+                    is_cursor: false,
+                    is_selected,
+                    is_reviewed: false,
+                    review_status: status,
+                    theme: &theme,
+                });
+                let box_index = 2 + usize::from(status.is_some());
+                assert_eq!(
+                    line.spans[box_index].content,
+                    format!(
+                        "{} ",
+                        if is_selected {
+                            SELECTED_BOX_GLYPH
+                        } else {
+                            UNSELECTED_BOX_GLYPH
+                        }
+                    )
+                );
+                assert_eq!(
+                    line.spans[box_index].style.fg,
+                    Some(if is_selected {
+                        theme.reviewed
+                    } else {
+                        theme.pending
+                    })
+                );
+                if let Some(status) = status {
+                    let (glyph, color) = match status {
+                        CommitReviewStatus::Empty => ("  ", None),
+                        CommitReviewStatus::NeedsAttention => ("! ", Some(theme.pending)),
+                        CommitReviewStatus::Reviewed => ("✓ ", Some(theme.reviewed)),
+                    };
+                    assert_eq!(line.spans[2].content, glyph);
+                    if let Some(color) = color {
+                        assert_eq!(line.spans[2].style.fg, Some(color));
+                    } else {
+                        assert!(!line_text(&line).contains(['!', '✓']));
+                    }
+                } else {
+                    assert!(
+                        !line_text(&line).contains(['!', '✓']),
+                        "startup rows have no local progress indicator"
+                    );
+                }
+                assert!(line.width() <= 107);
+            }
         }
     }
 
@@ -290,6 +367,7 @@ mod tests {
             is_cursor: true,
             is_selected: true,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         let prefix = line
@@ -320,6 +398,7 @@ mod tests {
             is_cursor: true,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -339,6 +418,7 @@ mod tests {
             is_cursor: false,
             is_selected: true,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -359,6 +439,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -379,6 +460,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: true,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -398,6 +480,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -419,6 +502,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -438,6 +522,7 @@ mod tests {
             is_cursor: true,
             is_selected: true,
             is_reviewed: true,
+            review_status: None,
             theme: &theme,
         }));
         // then
@@ -477,6 +562,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         }));
         let beta = line_text(&render_commit_row(&CommitRowSpec {
@@ -485,6 +571,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         }));
         // then
@@ -508,6 +595,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         }));
         let without_branch = line_text(&render_commit_row(&CommitRowSpec {
@@ -516,6 +604,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         }));
         // then
@@ -537,6 +626,7 @@ mod tests {
             is_cursor: false,
             is_selected: false,
             is_reviewed: false,
+            review_status: None,
             theme: &theme,
         });
         // then
@@ -559,6 +649,7 @@ mod tests {
                 is_cursor: false,
                 is_selected: false,
                 is_reviewed: false,
+                review_status: None,
                 theme: &theme,
             }));
             let wide = line_text(&render_commit_row(&CommitRowSpec {
@@ -567,6 +658,7 @@ mod tests {
                 is_cursor: false,
                 is_selected: false,
                 is_reviewed: false,
+                review_status: None,
                 theme: &theme,
             }));
             // then
