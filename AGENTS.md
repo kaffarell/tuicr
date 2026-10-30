@@ -150,6 +150,14 @@ Repository-managed agent integrations:
 - `remote_url(name)` resolves a named fetch/pull URL. New VCS adapters must implement this capability and update the Git-only discovery call in `main.rs`; keep forge parsing in `forge::resolve_remote_repository`, not in the VCS adapter.
 - Implementations: `GitBackend`, `HgBackend`, `JjBackend` (all always compiled)
 
+**CommitInfo** (`src/vcs/traits.rs`): `id` is the revision identity used for diffs,
+comment scoping, and persistence. `short_id` is display-only: the jj backend supplies
+`change_id.shortest(12)` and its `.prefix()` length in `change_id_prefix_len` for
+both commit selectors while keeping the underlying commit ID in `id`. Render
+the prefix bold magenta and the remainder dark grey, as in `jj log`; other VCSes
+leave the prefix length `None` and retain the theme's hash color. Never embed ANSI
+escapes in these identifiers or derive display IDs by truncating `id`.
+
 **FileTreeFilter** (`src/app/mod.rs`, impls in `src/app/file_filter.rs`):
 - File-tree `i` include / `e` exclude regex filters, the `/` path search, and the
   `show_reviewed` flag (`:set reviewed!`, config `show_reviewed`) that hides files already

@@ -87,6 +87,7 @@ fn normal_commit(id: &str) -> CommitInfo {
     CommitInfo {
         id: id.to_string(),
         short_id: id.to_string(),
+        change_id_prefix_len: None,
         branch_name: None,
         summary: "Test commit".to_string(),
         body: None,

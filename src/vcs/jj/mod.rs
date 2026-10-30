@@ -326,12 +326,13 @@ impl VcsBackend for JjBackend {
     fn get_recent_commits(&self, offset: usize, limit: usize) -> Result<Vec<CommitInfo>> {
         // Use jj log with a template to get structured output
         // Template fields separated by \x00, records separated by \x01
-        // Note: jj uses change_id for identifying changes, commit_id for the underlying git commit
+        // Display jj's change ID, but retain the underlying commit ID for
+        // revision resolution, comment scoping, and review-session identity.
         //
         // jj log doesn't have a --skip option, so we fetch offset+limit commits
         // and skip the first `offset` in Rust code
         let fetch_count = offset + limit;
-        let template = r#"commit_id ++ "\x00" ++ commit_id.short() ++ "\x00" ++ description ++ "\x00" ++ author.email() ++ "\x00" ++ committer.timestamp() ++ "\x01""#;
+        let template = r#"commit_id ++ "\x00" ++ change_id.shortest(12) ++ "\x00" ++ description ++ "\x00" ++ author.email() ++ "\x00" ++ committer.timestamp() ++ "\x00" ++ change_id.shortest(12).prefix() ++ "\x01""#;
         let output = run_jj_command(
             &self.info.root_path,
             [
@@ -354,7 +355,7 @@ impl VcsBackend for JjBackend {
             }
 
             let parts: Vec<&str> = record.split('\x00').collect();
-            if parts.len() < 5 {
+            if parts.len() < 6 {
                 continue;
             }
 
@@ -371,6 +372,7 @@ impl VcsBackend for JjBackend {
             commits.push(CommitInfo {
                 id,
                 short_id,
+                change_id_prefix_len: Some(parts[5].len()),
                 branch_name: None,
                 summary,
                 body,
@@ -431,7 +433,7 @@ impl VcsBackend for JjBackend {
             .map(|id| id.as_str())
             .collect::<Vec<_>>()
             .join(" | ");
-        let template = r#"commit_id ++ "\x00" ++ commit_id.short() ++ "\x00" ++ description ++ "\x00" ++ author.email() ++ "\x00" ++ committer.timestamp() ++ "\x01""#;
+        let template = r#"commit_id ++ "\x00" ++ change_id.shortest(12) ++ "\x00" ++ description ++ "\x00" ++ author.email() ++ "\x00" ++ committer.timestamp() ++ "\x00" ++ change_id.shortest(12).prefix() ++ "\x01""#;
         let output = run_jj_command(
             &self.info.root_path,
             ["log", "-r", &revset, "--no-graph", "-T", template],
@@ -444,7 +446,7 @@ impl VcsBackend for JjBackend {
                 continue;
             }
             let parts: Vec<&str> = record.split('\x00').collect();
-            if parts.len() < 5 {
+            if parts.len() < 6 {
                 continue;
             }
             let id = parts[0].to_string();
@@ -459,6 +461,7 @@ impl VcsBackend for JjBackend {
                 CommitInfo {
                     id,
                     short_id,
+                    change_id_prefix_len: Some(parts[5].len()),
                     branch_name: None,
                     summary,
                     body,
@@ -1056,6 +1059,57 @@ mod tests {
         Some(temp_dir)
     }
 
+    fn assert_jj_commit_ids(root: &Path, commit: &CommitInfo) {
+        let output = run_jj_command(
+            root,
+            [
+                "log",
+                "-r",
+                &commit.id,
+                "--no-graph",
+                "-T",
+                r#"commit_id ++ "\x00" ++ change_id.shortest(12) ++ "\x00" ++ commit_id.short() ++ "\x00" ++ change_id.shortest(12).prefix()"#,
+            ],
+        )
+        .expect("Failed to read jj identifiers");
+        let parts: Vec<_> = output.split('\x00').collect();
+        assert_eq!(parts.len(), 4);
+        assert_eq!(
+            commit.id, parts[0],
+            "Internal identity must remain a commit ID"
+        );
+        assert_eq!(
+            commit.short_id, parts[1],
+            "Display identity must be a jj change ID"
+        );
+        assert_ne!(commit.short_id, parts[2], "Do not display the Git hash");
+        assert_eq!(commit.change_id_prefix_len, Some(parts[3].len()));
+    }
+
+    #[test]
+    fn test_jj_get_commits_info_displays_change_ids_and_preserves_input_order() {
+        let Some(temp) = setup_test_repo_with_commits() else {
+            eprintln!("Skipping test: jj command not available");
+            return;
+        };
+        let backend = discover_in(temp.path()).expect("Failed to discover jj repo");
+        let commits = backend
+            .get_recent_commits(0, 5)
+            .expect("Failed to get commits");
+        assert!(commits.len() >= 3);
+        let ids = vec![commits[2].id.clone(), commits[0].id.clone()];
+        let selected = backend
+            .get_commits_info(&ids)
+            .expect("Failed to get commit info");
+        assert_eq!(
+            selected.iter().map(|c| &c.id).collect::<Vec<_>>(),
+            ids.iter().collect::<Vec<_>>()
+        );
+        for commit in &selected {
+            assert_jj_commit_ids(temp.path(), commit);
+        }
+    }
+
     #[test]
     fn test_jj_get_recent_commits() {
         let Some(temp) = setup_test_repo_with_commits() else {
@@ -1073,10 +1127,10 @@ mod tests {
         // jj creates a working copy commit on top, so we may have 4 commits
         assert!(commits.len() >= 3, "Expected at least 3 commits");
 
-        // All commits should have valid ids
+        // Both selectors should display change IDs while retaining commit IDs
+        // for diff operations and persisted review identity.
         for commit in &commits {
-            assert!(!commit.id.is_empty());
-            assert!(!commit.short_id.is_empty());
+            assert_jj_commit_ids(temp.path(), commit);
         }
 
         // Check that our commit messages are present (may not be in exact order due to working copy)

@@ -643,6 +643,7 @@ mod tests {
             .map(|id| CommitInfo {
                 id: id.to_string(),
                 short_id: id.to_string(),
+                change_id_prefix_len: None,
                 branch_name: None,
                 summary: format!("commit {id}"),
                 body: None,
@@ -954,6 +955,7 @@ mod tests {
         app.review_commits = vec![CommitInfo {
             id: "aaa".to_string(),
             short_id: "aaa".to_string(),
+            change_id_prefix_len: None,
             branch_name: None,
             summary: "selected".to_string(),
             body: None,

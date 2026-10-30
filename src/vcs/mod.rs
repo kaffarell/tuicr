@@ -373,6 +373,7 @@ mod tests {
         let commit = CommitInfo {
             id: "abc".to_string(),
             short_id: "abc".to_string(),
+            change_id_prefix_len: None,
             branch_name: Some("main".to_string()),
             summary: "test".to_string(),
             body: None,

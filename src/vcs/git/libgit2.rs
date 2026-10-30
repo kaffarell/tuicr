@@ -149,6 +149,7 @@ impl VcsBackend for Libgit2Backend {
             .map(|c| CommitInfo {
                 id: c.id,
                 short_id: c.short_id,
+                change_id_prefix_len: None,
                 branch_name: c.branch_name,
                 summary: c.summary,
                 body: c.body,
@@ -182,6 +183,7 @@ impl VcsBackend for Libgit2Backend {
             .map(|c| CommitInfo {
                 id: c.id,
                 short_id: c.short_id,
+                change_id_prefix_len: None,
                 branch_name: c.branch_name,
                 summary: c.summary,
                 body: c.body,

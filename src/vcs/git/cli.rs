@@ -1160,6 +1160,7 @@ fn parse_commit_record(
     Some(CommitInfo {
         id,
         short_id,
+        change_id_prefix_len: None,
         branch_name,
         summary,
         body,

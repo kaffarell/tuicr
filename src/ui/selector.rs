@@ -680,6 +680,7 @@ mod selector_render_snapshot_tests {
         CommitInfo {
             id: format!("abc{i}"),
             short_id: format!("abc{i}"),
+            change_id_prefix_len: None,
             branch_name: None,
             summary: format!("commit {i}"),
             body: None,

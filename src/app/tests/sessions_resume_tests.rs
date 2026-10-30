@@ -140,6 +140,7 @@ fn commit(id: &str) -> CommitInfo {
     CommitInfo {
         id: id.to_string(),
         short_id: id.chars().take(7).collect(),
+        change_id_prefix_len: None,
         branch_name: None,
         summary: format!("commit {id}"),
         body: None,
