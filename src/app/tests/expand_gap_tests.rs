@@ -1394,6 +1394,7 @@ fn total_lines_must_match_annotations_when_commit_scoped_comment_is_hidden() {
         crate::vcs::traits::CommitInfo {
             id: "aaa".to_string(),
             short_id: "aaa".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "commit aaa".to_string(),
             body: None,
@@ -1403,6 +1404,7 @@ fn total_lines_must_match_annotations_when_commit_scoped_comment_is_hidden() {
         crate::vcs::traits::CommitInfo {
             id: "bbb".to_string(),
             short_id: "bbb".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "commit bbb".to_string(),
             body: None,

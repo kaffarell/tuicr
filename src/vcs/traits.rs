@@ -128,8 +128,12 @@ impl DiffWhitespaceMode {
 /// Commit information for commit selection UI
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitInfo {
+    /// Revision identity used for diffs and persistence (a commit ID for jj).
     pub id: String,
+    /// Backend-provided short commit ID, also used in synthetic message paths.
     pub short_id: String,
+    /// Display-only jj change ID and the byte length of its unique prefix.
+    pub jj_change_id: Option<(String, usize)>,
     /// Optional branch label for this commit in commit selection UI.
     /// For Git this is populated for commits that are branch tips.
     pub branch_name: Option<String>,
@@ -419,6 +423,7 @@ mod tests {
         let commit = CommitInfo {
             id: "abc123def456".to_string(),
             short_id: "abc123d".to_string(),
+            jj_change_id: None,
             branch_name: Some("main".to_string()),
             summary: "Fix bug".to_string(),
             body: None,

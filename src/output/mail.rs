@@ -508,6 +508,7 @@ mod tests {
             let selected = CommitInfo {
                 id: id.to_string(),
                 short_id: id.to_string()[..7].into(),
+                jj_change_id: None,
                 branch_name: None,
                 summary: "Improve the file".into(),
                 body: Some("Explain the motivation.".into()),

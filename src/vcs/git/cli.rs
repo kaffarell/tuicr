@@ -1204,6 +1204,7 @@ fn parse_commit_record(
     Some(CommitInfo {
         id,
         short_id,
+        jj_change_id: None,
         branch_name,
         summary,
         body,

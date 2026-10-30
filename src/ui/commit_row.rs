@@ -4,7 +4,7 @@
 //! branch chip, summary, author/date) consistent across surfaces.
 
 use chrono::{DateTime, Utc};
-use ratatui::style::Style;
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
 use crate::app::{STAGED_SELECTION_ID, UNSTAGED_SELECTION_ID};
@@ -107,12 +107,29 @@ pub fn render_commit_row<'a>(spec: &CommitRowSpec<'a>) -> Line<'a> {
         return Line::from(spans);
     }
 
-    let hash_content_width = (HASH_COL_WIDTH - 1).max(spec.commit.short_id.chars().count());
-    let hash = format!(
-        "{} ",
-        truncate_or_pad(&spec.commit.short_id, hash_content_width)
-    );
-    spans.push(Span::styled(hash, styles::hash_style(theme)));
+    let (display_id, prefix_len) = match &spec.commit.jj_change_id {
+        Some((id, len)) => (id.as_str(), Some(*len)),
+        None => (spec.commit.short_id.as_str(), None),
+    };
+    let hash_content_width = (HASH_COL_WIDTH - 1).max(display_id.chars().count());
+    let hash = format!("{} ", truncate_or_pad(display_id, hash_content_width));
+    if let Some(prefix_len) = prefix_len
+        && display_id.is_char_boundary(prefix_len)
+    {
+        let (prefix, rest) = hash.split_at(prefix_len);
+        spans.push(Span::styled(
+            prefix.to_owned(),
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            rest.to_owned(),
+            Style::default().fg(Color::DarkGray),
+        ));
+    } else {
+        spans.push(Span::styled(hash, styles::hash_style(theme)));
+    }
 
     let when = format_relative_short(&spec.commit.time);
     let metadata = format!(
@@ -222,6 +239,7 @@ mod tests {
         CommitInfo {
             id: id.to_string(),
             short_id: id[..7.min(id.len())].to_string(),
+            jj_change_id: None,
             branch_name: branch.map(|s| s.to_string()),
             summary: summary.to_string(),
             body: None,
@@ -245,10 +263,10 @@ mod tests {
     }
 
     #[test]
-    fn should_preserve_backend_provided_short_hashes() {
+    fn should_preserve_backend_provided_display_identifiers() {
         // given
         let theme = Theme::dark();
-        for short_id in ["abcdef12", "abcdef123456"] {
+        for short_id in ["abcdef12", "abcdef123456", "qpvuntsm", "qpvuntsmrlkw"] {
             let mut c = commit("abcdef1234567890", "Add feature", Some("main"));
             c.short_id = short_id.to_string();
 
@@ -265,6 +283,35 @@ mod tests {
             // then
             assert!(text.contains(short_id), "missing {short_id:?} in {text:?}");
         }
+    }
+
+    #[test]
+    fn should_color_jj_unique_prefix_like_jj_log() {
+        let theme = Theme::dark();
+        let mut c = commit("abcdef1234567890", "Add feature", None);
+        c.jj_change_id = Some(("qpvuntsmrlkw".into(), 3));
+        let line = render_commit_row(&CommitRowSpec {
+            commit: &c,
+            available_width: 107,
+            is_cursor: true,
+            is_selected: true,
+            is_reviewed: false,
+            theme: &theme,
+        });
+        let prefix = line
+            .spans
+            .iter()
+            .find(|span| span.content == "qpv")
+            .unwrap();
+        assert_eq!(prefix.style.fg, Some(Color::Magenta));
+        assert!(prefix.style.add_modifier.contains(Modifier::BOLD));
+        let rest = line
+            .spans
+            .iter()
+            .find(|span| span.content == "untsmrlkw ")
+            .unwrap();
+        assert_eq!(rest.style.fg, Some(Color::DarkGray));
+        assert!(line_text(&line).contains("qpvuntsmrlkw "));
     }
 
     #[test]

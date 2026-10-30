@@ -351,6 +351,10 @@ retry); GitHub rejects an empty request-changes review, so it needs a comment th
 
 ## Commit selection / review target selector
 
+In jj repositories, commit rows display short jj change IDs instead of Git hashes.
+The inline commit selector above the diff uses the same identifiers. As in
+`jj log`, the shortest unique prefix is violet and the remaining characters grey.
+
 | Key | Action |
 |-----|--------|
 | `Tab` / `Shift-Tab` | Switch between Local, Pull Requests, and Sessions tabs |

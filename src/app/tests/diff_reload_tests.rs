@@ -412,6 +412,7 @@ fn make_commit_info(id: &str) -> CommitInfo {
     CommitInfo {
         id: id.to_string(),
         short_id: id.to_string(),
+        jj_change_id: None,
         branch_name: None,
         summary: format!("commit {id}"),
         body: None,

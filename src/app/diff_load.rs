@@ -5,6 +5,7 @@ impl App {
         CommitInfo {
             id: STAGED_SELECTION_ID.to_string(),
             short_id: "STAGED".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "Staged changes".to_string(),
             body: None,
@@ -17,6 +18,7 @@ impl App {
         CommitInfo {
             id: UNSTAGED_SELECTION_ID.to_string(),
             short_id: "UNSTAGED".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "Unstaged changes".to_string(),
             body: None,

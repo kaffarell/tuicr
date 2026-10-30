@@ -326,6 +326,7 @@ fn dummy_commit(id: &str) -> CommitInfo {
     CommitInfo {
         id: id.to_string(),
         short_id: id.to_string(),
+        jj_change_id: None,
         branch_name: None,
         summary: format!("commit {id}"),
         body: None,
@@ -4451,6 +4452,7 @@ fn app_in_pr_mode_from_checkout() -> (App, tempfile::TempDir, TestReviewsDir) {
         CommitInfo {
             id: "c2".to_string(),
             short_id: "c2".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "second".to_string(),
             body: None,
@@ -4460,6 +4462,7 @@ fn app_in_pr_mode_from_checkout() -> (App, tempfile::TempDir, TestReviewsDir) {
         CommitInfo {
             id: "c1".to_string(),
             short_id: "c1".to_string(),
+            jj_change_id: None,
             branch_name: None,
             summary: "first".to_string(),
             body: None,
@@ -4598,6 +4601,7 @@ fn app_in_pr_mode_with_commits(n: usize) -> (App, tempfile::TempDir, TestReviews
         .map(|i| CommitInfo {
             id: format!("c{i}"),
             short_id: format!("c{i}"),
+            jj_change_id: None,
             branch_name: None,
             summary: format!("commit {i}"),
             body: None,

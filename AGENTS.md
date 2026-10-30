@@ -23,6 +23,8 @@ Repository-managed agent integration: `skills/tuicr/` (shared skill bundle that 
 
 **VcsBackend** (`src/vcs/traits.rs`): `GitBackend` (libgit2 by default; Git CLI for sparse checkouts, which also emits a startup warning, or `backend = "cli"`), `HgBackend`, `JjBackend`, all always compiled. `detect_vcs()` tries jj, then git, then hg. `supports_sparse_checkout()` is a capability hook. `remote_url(name)` must be implemented by every adapter and wired into the Git-only discovery call in `main.rs`; forge parsing stays in `forge::resolve_remote_repository`, never in the VCS adapter.
 
+**CommitInfo** (`src/vcs/traits.rs`): keep jj's change ID and unique-prefix length display-only in `jj_change_id`. The selectors highlight the prefix as in `jj log`. `id` stays the underlying commit ID and `short_id` stays the short commit ID so persisted commit-message paths do not change.
+
 **FileTreeFilter** (`src/app/mod.rs`, `src/app/file_filter.rs`): `i`/`e` regex include/exclude, `/` path search, and `show_reviewed` (`:set reviewed!`, config `show_reviewed`).
 - `show_reviewed` is **command-only**: the project reserves single-stroke keys for vim motions, so never add a key for it.
 - A filter is a *view* over `diff_files`, never a mutation: `file_idx` stays absolute. `App::file_passes_filter()` is the single on-screen predicate, consulted by `build_visible_items`, `rebuild_annotations`, `file_render_height`/`effective_file_height` (0 lines when hidden), `hunk_positions`, and both diff renderers. Gate any new loop over `diff_files`.

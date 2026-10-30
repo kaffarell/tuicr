@@ -8,8 +8,9 @@ from e2e import Scenario, repos, scenario
 def main(s: Scenario) -> None:
     s.use_jj()
     repo = repos.jj_repo(s.dir / "repo")
+    change_id = repos.run(repo, "jj", "log", "-r", "@", "--no-graph", "-T", "change_id.shortest(12)")
     tui = s.start(cwd=repo)
-    tui.wait_for("wip").expect("second").expect("base").expect("jj:")
+    tui.wait_for(rf"\b{change_id.strip()}\s+wip").expect("second").expect("base").expect("jj:")
     tui.keys("Enter")
     tui.wait_for("Files · 0/3").expect(r"M a\.txt").expect(r"A d\.txt").expect("a wip").expect("d wip")
     tui.reject("c one")  # c.txt belongs to "second", not to the working copy

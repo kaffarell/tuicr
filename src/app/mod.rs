@@ -422,6 +422,7 @@ pub fn pr_commit_to_commit_info(commit: &crate::forge::traits::PullRequestCommit
     CommitInfo {
         id: commit.oid.clone(),
         short_id: commit.short_oid.clone(),
+        jj_change_id: None,
         branch_name: None,
         summary: commit.summary.clone(),
         body: commit.body.clone(),

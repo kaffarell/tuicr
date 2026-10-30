@@ -125,6 +125,9 @@ Press `dd` to delete the selected local draft, even if its original line or file
 this diff. Return with `Esc` and use `:w` to save the deletion, as with diff-view deletion.
 Auto-detects git, jj, or mercurial. SHA-256 Git repositories automatically use the Git CLI backend,
 including when reviewing root commits; ordinary SHA-1 repositories still default to libgit2.
+In jj repositories, both the initial commit selector and the inline commit pane show
+jj change IDs instead of Git hashes, with the shortest unique prefix in violet
+and the rest in grey, like `jj log`.
 
 ## How it compares
 

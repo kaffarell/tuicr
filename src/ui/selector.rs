@@ -751,6 +751,7 @@ mod selector_render_snapshot_tests {
         CommitInfo {
             id: format!("abc{i}"),
             short_id: format!("abc{i}"),
+            jj_change_id: None,
             branch_name: None,
             summary: format!("commit {i}"),
             body: None,
