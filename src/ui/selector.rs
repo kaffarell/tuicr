@@ -793,6 +793,51 @@ mod selector_render_snapshot_tests {
     const TAB_STRIP_ROW: u16 = 0;
 
     #[test]
+    fn inline_commit_pane_follows_cycling_in_both_orders() {
+        use crate::app::CommitOrder;
+
+        let assert_visible = |app: &mut App| {
+            let buffer = draw_inline_at(app, 120);
+            let id = &app.review_commits[app.commit_list_cursor].short_id;
+            assert!(
+                (1..4).any(|y| {
+                    let text = row_text(&buffer, y);
+                    text.contains('▸') && text.contains(id)
+                }),
+                "cursor on {id} must stay visible (offset {})",
+                app.commit_list_scroll_offset
+            );
+        };
+
+        for order in [CommitOrder::Descending, CommitOrder::Ascending] {
+            let mut app = make_app(Vec::new());
+            app.input_mode = InputMode::Normal;
+            app.review_commits = (0..8).map(commit).collect();
+            app.commit_order = order;
+            app.commit_list_cursor = 7;
+            app.commit_selection_range = Some((7, 7));
+            app.commit_list_scroll_offset = app.commit_data_index(7).saturating_sub(2);
+            assert_visible(&mut app);
+
+            for _ in 0..7 {
+                app.cycle_commit_prev();
+                assert_visible(&mut app);
+            }
+            for _ in 0..7 {
+                app.cycle_commit_next();
+                assert_visible(&mut app);
+            }
+            // Wrapping through the full range can jump straight to either end.
+            app.cycle_commit_next();
+            app.cycle_commit_prev();
+            assert_visible(&mut app);
+            app.cycle_commit_prev();
+            app.cycle_commit_next();
+            assert_visible(&mut app);
+        }
+    }
+
+    #[test]
     fn should_resize_branch_columns_on_fullscreen_and_inline_selectors() {
         // given
         let mut wide_commit = commit(0);
