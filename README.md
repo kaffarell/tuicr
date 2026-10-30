@@ -111,6 +111,15 @@ Narrow a multi-commit review to one commit with `(` / `)` and tuicr puts that co
 its diff, in pull requests as well as local ranges, where it can be read, marked reviewed and
 commented on like a file. tuicr does not post inline comments on commit messages, so `:submit` sends
 those comments in the review summary.
+
+The inline commit pane keeps green boxes for selected commits and adds a separate
+review indicator to their left: yellow `!` for comments or partial review,
+green `✓` when every changed file is reviewed without comments or review notes.
+Commits with no comments and no file/hunk review progress have no indicator.
+The startup commit picker only shows selection, not these review indicators.
+Commit review populations are prepared together in the background when a review
+opens, so their indicators do not depend on visiting commits with `(`/`)`.
+
 File-reviewed marks survive switching commit selections and `:w`/reopening;
 reviewing one diff does not mark a different diff of the same file reviewed.
 

@@ -1145,6 +1145,13 @@ pub enum CommentVimPending {
     Cancel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitReviewStatus {
+    Empty,
+    NeedsAttention,
+    Reviewed,
+}
+
 pub struct App {
     pub theme: Theme,
     pub vcs: Box<dyn VcsBackend>,
@@ -1520,6 +1527,7 @@ pub struct App {
     pub initial_comments_visibility: Option<crate::forge::remote_comments::PrCommentsVisibility>,
     /// Cached individual/subrange diffs keyed by (start_idx, end_idx) into review_commits
     pub commit_diff_cache: HashMap<(usize, usize), Vec<DiffFile>>,
+    commit_review_preparation: Option<commit_status::CommitReviewPreparation>,
     /// Full-range (every commit) diff cache, used to restore the widened view
     pub range_diff_files: Option<Vec<DiffFile>>,
     /// Saved inline selection range when entering full commit select mode via :commits
@@ -2022,6 +2030,7 @@ mod annotations;
 mod coloring;
 mod comment_vim;
 mod comments;
+mod commit_status;
 mod commits;
 mod diff_load;
 mod editor_target;
