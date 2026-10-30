@@ -38,6 +38,7 @@ const COMMAND_SPECS: &[CommandSpec] = &[
     CommandSpec::new(&["e", "reload"], CommandKind::Reload),
     CommandSpec::new(&["edit"], CommandKind::Edit),
     CommandSpec::new(&["clip", "export"], CommandKind::Export),
+    CommandSpec::new(&["mail"], CommandKind::Mail),
     CommandSpec::new(&["copy-url"], CommandKind::CopyUrl),
     CommandSpec::new(
         &["clear"],
@@ -143,6 +144,7 @@ enum CommandKind {
     Reload,
     Edit,
     Export,
+    Mail,
     CopyUrl,
     Clear(ClearScope),
     Help,
@@ -532,6 +534,21 @@ fn handle_export_to_file(app: &mut App, path: &str) {
             app.set_warning(format!("Could not write {}: {e}", path.display()))
         }
         Err(TuicrError::NoComments) => app.set_warning("No comments to write"),
+        Err(e) => app.set_warning(format!("{e}")),
+    }
+}
+
+fn handle_mail_export(app: &mut App) {
+    match app.generate_mail_content() {
+        Ok(content) if app.output_to_stdout => {
+            app.pending_stdout_output = Some(content);
+            app.should_quit = true;
+        }
+        Ok(content) => match copy_text_to_clipboard(&content) {
+            Ok(true) => app.set_message("Mail review copied to clipboard (via terminal)"),
+            Ok(false) => app.set_message("Mail review copied to clipboard"),
+            Err(e) => app.set_warning(format!("{e}")),
+        },
         Err(e) => app.set_warning(format!("{e}")),
     }
 }
@@ -1006,6 +1023,10 @@ fn dispatch_command(app: &mut App, kind: CommandKind) -> CommandAfterDispatch {
         }
         CommandKind::Export => {
             handle_export(app);
+            CommandAfterDispatch::ExitCommandMode
+        }
+        CommandKind::Mail => {
+            handle_mail_export(app);
             CommandAfterDispatch::ExitCommandMode
         }
         CommandKind::CopyUrl => {
@@ -2132,6 +2153,20 @@ mod command_tests {
         assert_eq!(super::file_command_path("file"), Some(""));
         assert_eq!(super::file_command_path("files"), None);
         assert_eq!(super::file_command_path("focus"), None);
+    }
+
+    #[test]
+    fn parses_mail_command_without_changing_markdown_export() {
+        assert_eq!(
+            command_spec_for("mail").map(|spec| spec.kind),
+            Some(CommandKind::Mail)
+        );
+        for name in ["clip", "export"] {
+            assert_eq!(
+                command_spec_for(name).map(|spec| spec.kind),
+                Some(CommandKind::Export)
+            );
+        }
     }
 
     #[test]

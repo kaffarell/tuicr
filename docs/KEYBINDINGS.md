@@ -181,6 +181,7 @@ Shown below the file tree when local comments or visible remote PR threads exist
 | `A` | Edit comment at cursor with text cursor at end (vim mode only) |
 | `e` | Open focused file in `$EDITOR` |
 | `y` | Copy review to clipboard |
+| `:mail` | Copy the single selected commit's review as a plain-text email reply (local Git) |
 | `Y` | Copy the comment at cursor to clipboard |
 
 In PR review, `r` with the cursor anywhere on the PR description marks the
@@ -263,6 +264,7 @@ In command mode,
 | `:edit` | Open focused file in `$EDITOR` |
 | `:clip` (`:export`) | Copy review to clipboard |
 | `:file <path>` | Write the same review to `<path>`, replacing any file there (`~/` means home) |
+| `:mail` | Copy an email reply to the single selected local Git commit (72-column comments, quoted patch excerpts) |
 | `:copy-url` | Copy the open PR URL to clipboard (PR mode) |
 | `:summary` | Show all pending local-draft comments; `j`/`k` select, `dd` deletes, and `Enter` jumps |
 | `:diff` | Toggle diff view (unified / side-by-side) |
@@ -429,3 +431,33 @@ Mouse support is on by default. Disable with `mouse = false` in config.
 | Drag in diff | Highlight a range; press `y` to copy the selected source lines |
 
 For full native terminal selection across the UI, hold your terminal's bypass modifier while dragging (usually **Shift** or **Option/Alt**, depending on the terminal).
+
+## Email review export
+
+Select exactly one real commit in the inline commit pane before running `:mail`.
+It starts with the quoted commit description, omitting email headers. It quotes
+the description and patch with `> ` and inserts your
+comments unquoted after their anchors (range comments follow the range's last
+line). About 10 patch lines before and after each comment are retained, nearby
+excerpts are merged, and omitted sections use `> [snip]`. File-level comments
+follow the file headers; review-level comments follow the commit description.
+Comments on other commits are excluded. Unscoped comments on files in the patch
+remain included, like in the diff view. Unmatched anchors are listed explicitly
+rather than silently dropped or attached to the wrong line.
+
+`r` marks a file reviewed and `R` marks a hunk reviewed; there is no independent
+commit-approval flag. `:mail` appends one unquoted `Reviewed-by: Name <email>`
+for the whole commit only when every changed file is marked reviewed with `r`
+and there are no comments or review notes for that commit. Hidden or ignored
+files still count, and hunk marks alone do not qualify. Comments scoped to
+other commits do not prevent the tag. The identity uses the repository's
+effective Git `user.name` and `user.email` (including global configuration);
+configure both before exporting a clean, fully reviewed commit. The generated
+tag is never saved as a comment in the session.
+
+Comment prose wraps at 72 display columns, preserving paragraph and explicit line
+breaks. Indented/fenced code and words longer than 72 columns (such as URLs) are
+not split. The patch itself is never wrapped. This command currently supports
+local Git repositories, including colocated jj, not PRs, multi-commit selections,
+or staged/unstaged pseudo-commits. With `--stdout`, it prints the reply and exits.
+The regular `y` / `:clip` / `:export` Markdown export is unchanged.

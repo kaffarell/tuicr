@@ -175,7 +175,8 @@ in `@<host>`, e.g. `gh:owner/repo/pr/N@ghe.example.com`. `tuicr-summary:` is pri
 including with zero comments, so a watcher can tell "reviewed everything, found
 nothing" apart from "quit without looking".
 
-`--stdout` prints the export markdown to stdout when the TUI exits, with the
+`--stdout` prints the export Markdown (or the plain-text email reply when using
+`:mail`) to stdout when the TUI exits, with the
 TUI itself rendered to `/dev/tty`. Combined with the two stderr markers, that
 keeps stdout clean for a pipe.
 

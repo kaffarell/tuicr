@@ -1,3 +1,4 @@
+pub mod mail;
 pub mod markdown;
 
 pub use markdown::{
