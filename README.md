@@ -208,6 +208,29 @@ Paste it back to any coding agent (Claude, Codex, Cursor, etc).
 For an agent-driven workflow where your agent opens tuicr in a cmux, tmux, Zellij, or
 Herdr split pane, see [skills/tuicr/SKILL.md](skills/tuicr/SKILL.md).
 
+### By email
+
+Select exactly one commit in the inline commit pane, then run `:mail` to copy
+a plain-text reply to that commit's patch. It starts with the quoted commit
+description, without email headers. The description and patch excerpts are
+quoted with `> `, with your comments inserted unquoted
+after the relevant lines. Excerpts retain about 10 patch lines around each
+comment; omitted sections are marked `> [snip]`. Overlapping excerpts are merged.
+Comment prose wraps at 72 columns; code blocks and long URLs are left intact.
+
+When every changed file in the commit is marked reviewed with `r` and there
+are no comments or review notes for that commit, `:mail` appends a single
+unquoted `Reviewed-by: Name <email>` for the whole commit. The identity comes
+from Git's `user.name` and `user.email`; both must be configured to emit the
+tag. Partial reviews and hunk marks (`R`) alone never generate it.
+
+This export currently requires a local Git repository (including colocated jj),
+not a PR review or uncommitted changes. It uses the committed content, regardless
+of edits in your worktree. File and commit-message comments are included, and
+comments whose anchors cannot be quoted are retained with an explicit location.
+With `--stdout`, `:mail` prints the reply and exits instead of copying it.
+`:clip` and `y` keep their existing Markdown format.
+
 ### To stdout
 
 Run with `--stdout` to pipe the markdown to another process:
@@ -324,6 +347,7 @@ A first-session cheatsheet. Press `?` inside tuicr for the full reference.
 | `e` | Open focused file in `$EDITOR` (in PR review: the PR's revision, as a read-only copy when the checkout differs) |
 | `y` | Copy review to clipboard |
 | `:edit` | Open focused file in `$EDITOR` |
+| `:mail` | Copy the selected commit's review as a quoted email reply (local Git) |
 | `:submit` | Push review to GitHub, GitLab, Gitea, Bitbucket, Azure DevOps, or Gerrit |
 | `:theme` | Open a live-preview theme picker (`/` to filter); `:theme <name>` applies directly. Session-only; set `theme` in `config.toml` to keep it |
 | `Tab` in `:` prompt | Complete or cycle commands |

@@ -534,7 +534,7 @@ fn collect_used_comment_type_ids(session: &ReviewSession) -> HashSet<String> {
 
 /// Export label for a comment type. Returns an empty string for
 /// [`CommentType::None`] so the caller omits the `**[TYPE]**` marker.
-fn export_comment_type_label(
+pub(super) fn export_comment_type_label(
     comment_type: &CommentType,
     comment_types: &[CommentTypeDefinition],
 ) -> String {

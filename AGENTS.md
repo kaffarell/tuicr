@@ -111,7 +111,8 @@ src/
 │
 ├── output/
 │   ├── mod.rs
-│   └── markdown.rs      # export_to_clipboard(): generate markdown, copy to clipboard
+│   ├── markdown.rs      # export_to_clipboard(): generate markdown, copy to clipboard
+│   └── mail.rs          # :mail: quoted local Git commit excerpts + inline comments, 72-column prose
 │
 └── ui/
     ├── mod.rs
@@ -229,6 +230,20 @@ Repository-managed agent integrations:
 6. **Persistence**: active TUI sessions, comment submit, and `:w` save the session JSON to `~/.local/share/tuicr/reviews/`; library callers use `ReviewStore`. Open TUI sessions are also recorded in `active_sessions.json` beside `index.json` with pid, slug, path, and last-seen timestamp. TUI-created empty session files are deleted on normal exit if they still contain no comments and no reviewed files. `tuicr review delete`/`clearc`/`clear` likewise delete a session they empty, except while `active_sessions.json` lists a live owner: the open TUI keeps sharing the file with the agent.
 7. **Reload diff/session**: synchronous local reloads re-run VCS diff loading and `.tuicrignore` filtering. Full reloads persist resulting file hashes and invalidated review markers without saving unrelated dirty state; strict commit subsets remain live-only. Manual `:e` also reloads persisted comments before applying the diff.
 8. **Export**: `:clip` (alias `:export`) calls `export_to_clipboard()`, generating markdown and copying it to the clipboard (or stdout with `--stdout` flag)
+   `:mail` instead requires exactly one selected local Git commit (colocated jj also works),
+   reads its committed patch with libgit2, and copies a quoted email
+   reply retaining 10 patch lines around each comment (full-file context is materialized
+   only for annotated files, so comments on expanded gaps remain inline). The reply
+   starts with the quoted commit description, without email headers. It uses
+   unquoted comments wrapped at 72 display columns. It never exports the
+   worktree or a cumulative multi-commit diff. Old/new sides and range ends control
+   inline placement; unmatched comments retain explicit locations. The same `--stdout`
+   path prints the email reply and exits. PR reviews are not supported by `:mail`.
+   A single commit-level `Reviewed-by` trailer uses Git-config `user.name` and
+   `user.email` only when every actual changed path has a current, hash-matching
+   file-reviewed mark and there are no exported comments or review notes. The
+   complete commit diff supplies the population (not the filtered viewport);
+   hunk marks alone never qualify. The tag is not persisted as a draft comment.
 
 ### Important Implementation Details
 

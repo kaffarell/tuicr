@@ -301,3 +301,103 @@ fn legacy_session_json_deserializes_comment_without_commit_id() {
         "legacy JSON without commit_id must deserialize as None"
     );
 }
+
+#[test]
+fn mail_rejects_multi_commit_and_pseudo_commit_selections() {
+    let mut app = build_app_with_review_commits(vec![commit("aaa"), commit("bbb")]);
+    for selection in [None, Some((0, 1)), Some((9, 9))] {
+        app.commit_selection_range = selection;
+        assert!(matches!(
+            app.generate_mail_content(),
+            Err(TuicrError::InvalidInput(_))
+        ));
+    }
+    for id in [STAGED_SELECTION_ID, UNSTAGED_SELECTION_ID] {
+        app.review_commits = vec![commit(id)];
+        app.commit_selection_range = Some((0, 0));
+        assert!(matches!(
+            app.generate_mail_content(),
+            Err(TuicrError::InvalidInput(_))
+        ));
+    }
+}
+
+#[test]
+fn mail_command_exports_comments_or_review_marks_to_stdout_and_leaves_errors_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = git2::Repository::init(dir.path()).unwrap();
+    std::fs::write(dir.path().join("new.txt"), "new content\n").unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(Path::new("new.txt")).unwrap();
+    let tree_id = index.write_tree().unwrap();
+    let tree = repo.find_tree(tree_id).unwrap();
+    let sig = git2::Signature::now("Tester", "test@example.org").unwrap();
+    let oid = repo
+        .commit(Some("HEAD"), &sig, &sig, "Root commit", &tree, &[])
+        .unwrap();
+    let mut app = build_app_with_review_commits(vec![commit(&oid.to_string())]);
+    app.vcs_info.root_path = dir.path().into();
+    app.output_to_stdout = true;
+    // No comments: report the error without exiting or setting stdout content.
+    app.enter_command_mode();
+    app.command_buffer = "mail".into();
+    crate::handler::handle_command_action(&mut app, crate::input::Action::SubmitInput);
+    assert!(!app.should_quit);
+    assert!(app.pending_stdout_output.is_none());
+
+    app.session.add_file("new.txt".into(), FileStatus::Added, 0);
+    app.session
+        .files
+        .get_mut(Path::new("new.txt"))
+        .unwrap()
+        .add_line_comment(
+            1,
+            line_comment("Please explain this.", Some(&oid.to_string())),
+        );
+    app.enter_command_mode();
+    app.command_buffer = "mail".into();
+    crate::handler::handle_command_action(&mut app, crate::input::Action::SubmitInput);
+    assert!(app.should_quit);
+    let out = app.pending_stdout_output.as_deref().unwrap();
+    assert!(out.starts_with("> Root commit\n"));
+    assert!(out.contains("> +new content\n\n"));
+    assert!(out.contains("Please explain this."));
+
+    // A file marked through the normal TUI action also exports without comments.
+    app.should_quit = false;
+    app.pending_stdout_output = None;
+    app.session
+        .files
+        .get_mut(Path::new("new.txt"))
+        .unwrap()
+        .line_comments
+        .clear();
+    app.diff_files = crate::vcs::diff_parser::parse_file_patches(
+        vec![crate::model::FilePatch::new(
+            None,
+            Some("new.txt".into()),
+            FileStatus::Added,
+            "@@ -0,0 +1 @@\n+new content\n",
+        )],
+        &SyntaxHighlighter::default(),
+    )
+    .unwrap();
+    app.session.add_diff_file(&app.diff_files[0]);
+    let mut config = repo.config().unwrap();
+    config.set_str("user.name", "Reviewing User").unwrap();
+    config
+        .set_str("user.email", "reviewing@example.org")
+        .unwrap();
+    app.toggle_reviewed_for_file_idx(0, false);
+    app.enter_command_mode();
+    app.command_buffer = "mail".into();
+    crate::handler::handle_command_action(&mut app, crate::input::Action::SubmitInput);
+    assert!(app.should_quit);
+    assert!(
+        app.pending_stdout_output
+            .as_deref()
+            .unwrap()
+            .contains("\nReviewed-by: Reviewing User <reviewing@example.org>\n")
+    );
+    assert_eq!(app.session.comment_count(), 0);
+}

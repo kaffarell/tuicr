@@ -806,6 +806,36 @@ impl App {
         }
     }
 
+    /// Mail replies require a single real commit, never a highlighted row
+    /// inside a cumulative selection or a staged/unstaged pseudo-commit.
+    pub fn generate_mail_content(&self) -> Result<String> {
+        if matches!(self.diff_source, DiffSource::PullRequest(_))
+            || !matches!(self.vcs_info.vcs_type, VcsType::Git | VcsType::Jujutsu)
+        {
+            return Err(TuicrError::UnsupportedOperation(
+                ":mail requires a local Git commit review".into(),
+            ));
+        }
+        let commit = match self.commit_selection_range {
+            Some((start, end)) if start == end => self.review_commits.get(start),
+            None if self.review_commits.len() == 1 => self.review_commits.first(),
+            _ => None,
+        }
+        .filter(|c| !Self::is_special_commit(c))
+        .ok_or_else(|| {
+            TuicrError::InvalidInput(
+                "Select exactly one commit in the commit pane before using :mail".into(),
+            )
+        })?;
+        crate::output::mail::generate_mail_content(
+            &self.vcs_info.root_path,
+            commit,
+            &self.session,
+            &self.comment_types,
+            &self.diff_files,
+        )
+    }
+
     /// The single commit SHA to stamp on a *new* comment, when the inline
     /// selector shows exactly one commit. `None` otherwise (full range,
     /// multi-commit subset, or no selector) — those comments get

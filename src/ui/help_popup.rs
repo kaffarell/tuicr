@@ -720,6 +720,13 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
+                "  :mail     ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("Copy commit review as email (Reviewed-by if fully reviewed, no comments)"),
+        ]),
+        Line::from(vec![
+            Span::styled(
                 "  :copy-url ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
