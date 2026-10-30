@@ -272,13 +272,38 @@ impl App {
                 continue;
             }
 
-            let base_reviewed = base.files.get(path).map(|review| review.reviewed);
-            if let Some(current_review) = current.files.get_mut(path)
-                && Some(current_review.reviewed) == base_reviewed
-                && current_review.reviewed != latest_review.reviewed
-            {
-                current_review.reviewed = latest_review.reviewed;
-                changed += 1;
+            if let Some(current_review) = current.files.get_mut(path) {
+                let base_hashes = base
+                    .files
+                    .get(path)
+                    .map(FileReview::reviewed_hashes)
+                    .unwrap_or_default();
+                let latest_hashes = latest_review.reviewed_hashes();
+                let current_hashes = current_review.reviewed_hashes();
+                let mut merged_hashes = current_hashes.clone();
+                merged_hashes.extend(latest_hashes.difference(&base_hashes).copied());
+                for removed in base_hashes.difference(&latest_hashes) {
+                    merged_hashes.remove(removed);
+                }
+                let merged_reviewed = if let Some(hash) = current_review.content_hash {
+                    merged_hashes.contains(&hash)
+                } else if latest_review.content_hash.is_none()
+                    && base.files.get(path).is_some_and(|review| {
+                        review.content_hash.is_none() && review.reviewed == current_review.reviewed
+                    })
+                {
+                    // Legacy entries absent from the displayed diff stay hashless.
+                    // Merge their flag only when all three views are hashless and
+                    // it has not changed locally; never transfer it to a known hash.
+                    latest_review.reviewed
+                } else {
+                    current_review.reviewed
+                };
+                if merged_hashes != current_hashes || merged_reviewed != current_review.reviewed {
+                    current_review.reviewed = merged_reviewed;
+                    changed += 1;
+                }
+                current_review.reviewed_content_hashes = merged_hashes;
             }
         }
 

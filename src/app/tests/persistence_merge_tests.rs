@@ -100,3 +100,114 @@ fn should_apply_external_edit_when_comment_is_unchanged_locally() {
         "new"
     );
 }
+
+#[test]
+fn should_merge_reviewed_hashes_without_transferring_approval_between_views() {
+    let path = PathBuf::from("src/main.rs");
+    let base = test_session();
+    let mut current = base.clone();
+    current.add_file(path.clone(), FileStatus::Modified, 123);
+    current.files.get_mut(&path).unwrap().set_reviewed(true);
+    let mut latest = base.clone();
+    latest.files.get_mut(&path).unwrap().set_reviewed(true);
+
+    App::merge_external_session_changes(&mut current, &base, &latest);
+    let review = &current.files[&path];
+    assert_eq!(review.content_hash, Some(123));
+    assert!(review.reviewed);
+    assert!(review.is_content_reviewed(SOME_HASH));
+
+    // An external unmark only affects its own diff, not the locally reviewed one.
+    let base = latest.clone();
+    latest.files.get_mut(&path).unwrap().set_reviewed(false);
+    App::merge_external_session_changes(&mut current, &base, &latest);
+    assert!(current.files[&path].reviewed);
+    assert!(!current.files[&path].is_content_reviewed(SOME_HASH));
+
+    let saved = current.clone();
+    current.files.get_mut(&path).unwrap().set_reviewed(false);
+    App::merge_external_session_changes(&mut current, &saved, &saved);
+    assert!(
+        !current.has_reviewed_state(),
+        "an unchanged disk must not resurrect a local unmark"
+    );
+}
+
+#[test]
+fn should_merge_legacy_reviewed_flags_without_overwriting_local_changes() {
+    let path = PathBuf::from("src/main.rs");
+    for (base_reviewed, current_reviewed, latest_reviewed, expected) in [
+        (true, true, false, false),
+        (false, false, true, true),
+        (true, false, true, false),
+        (false, true, false, true),
+    ] {
+        let mut base = test_session();
+        let review = base.files.get_mut(&path).unwrap();
+        review.content_hash = None;
+        review.set_reviewed(base_reviewed);
+        let mut current = base.clone();
+        current
+            .files
+            .get_mut(&path)
+            .unwrap()
+            .set_reviewed(current_reviewed);
+        let mut latest = base.clone();
+        latest
+            .files
+            .get_mut(&path)
+            .unwrap()
+            .set_reviewed(latest_reviewed);
+
+        let changed = App::merge_external_session_changes(&mut current, &base, &latest);
+
+        assert_eq!(current.files[&path].reviewed, expected);
+        assert_eq!(changed, usize::from(current_reviewed != expected));
+        assert_eq!(current.files[&path].content_hash, None);
+        // Saving again against the observed disk state must not undo the merge.
+        assert_eq!(
+            App::merge_external_session_changes(&mut current, &latest, &latest),
+            0
+        );
+        assert_eq!(current.files[&path].reviewed, expected);
+    }
+}
+
+#[test]
+fn should_not_transfer_legacy_approval_to_a_registered_diff() {
+    let path = PathBuf::from("src/main.rs");
+    let mut base = test_session();
+    base.files.get_mut(&path).unwrap().content_hash = None;
+    let mut current = base.clone();
+    current.add_file(path.clone(), FileStatus::Modified, SOME_HASH);
+    let mut latest = base.clone();
+    latest.files.get_mut(&path).unwrap().set_reviewed(true);
+
+    assert_eq!(
+        App::merge_external_session_changes(&mut current, &base, &latest),
+        0
+    );
+    assert!(!current.files[&path].reviewed);
+}
+
+#[test]
+fn should_not_transfer_registered_approval_to_a_legacy_flag() {
+    let path = PathBuf::from("src/main.rs");
+    for reviewed in [false, true] {
+        let mut base = test_session();
+        let review = base.files.get_mut(&path).unwrap();
+        review.content_hash = None;
+        review.set_reviewed(reviewed);
+        let mut current = base.clone();
+        let mut latest = base.clone();
+        latest.add_file(path.clone(), FileStatus::Modified, SOME_HASH);
+        latest.files.get_mut(&path).unwrap().set_reviewed(true);
+
+        assert_eq!(
+            App::merge_external_session_changes(&mut current, &base, &latest),
+            1
+        );
+        assert_eq!(current.files[&path].reviewed, reviewed);
+        assert!(current.files[&path].is_content_reviewed(SOME_HASH));
+    }
+}

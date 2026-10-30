@@ -100,6 +100,8 @@ review when that metadata is available; commits already covered by that review a
 `✓` in the inline selector.
 (Bitbucket does not record which commit an approval covered, so that preselection does not apply
 there.)
+File-reviewed marks survive switching commit selections and `:w`/reopening;
+reviewing one diff does not mark a different diff of the same file reviewed.
 Use `:summary` during a review to show every pending local-draft comment. The summary replaces the
 diff while leaving the file sidebar visible when it is open. The first
 comment is selected when the view opens; use `j`/`k` to select the next or previous comment, and

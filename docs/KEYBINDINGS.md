@@ -136,6 +136,10 @@ considers files that pass the active filters.
 | `<leader>n` | Toggle relative line numbers (also `:set relativenumber!`) |
 | `Enter` | Select file (when file list is focused) |
 
+File-reviewed marks are saved per diff content: switching between an individual
+commit and the full range does not erase either view's progress. `:w` retains
+those marks across reopening. A different, unreviewed diff stays pending;
+unmarking with `r` affects the current diff, while `:clear` clears all marks.
 ## Comment navigator
 
 Shown below the file tree when local comments or visible remote PR threads exist.

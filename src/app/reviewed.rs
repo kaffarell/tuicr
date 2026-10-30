@@ -327,7 +327,7 @@ impl App {
 
         self.revealed_reviewed_file = None;
         if let Some(review) = self.session.get_file_mut(&path) {
-            review.reviewed = !review.reviewed;
+            review.set_reviewed(!review.reviewed);
             self.dirty = true;
 
             // Update current_file_idx before rebuilding annotations:

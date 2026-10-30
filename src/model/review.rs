@@ -41,6 +41,10 @@ pub struct FileReview {
     pub reviewed_hunks: BTreeSet<String>,
     #[serde(default)]
     pub content_hash: Option<u64>,
+    /// File approvals for other displayed diff contents (commit/subrange views).
+    /// `reviewed` remains authoritative for the currently registered hash.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub reviewed_content_hashes: BTreeSet<u64>,
 }
 
 impl FileReview {
@@ -53,7 +57,47 @@ impl FileReview {
             line_comments: HashMap::new(),
             reviewed_hunks: BTreeSet::new(),
             content_hash: Some(content_hash),
+            reviewed_content_hashes: BTreeSet::new(),
         }
+    }
+
+    pub fn is_content_reviewed(&self, content_hash: u64) -> bool {
+        if self.content_hash == Some(content_hash) {
+            self.reviewed
+        } else {
+            self.reviewed_content_hashes.contains(&content_hash)
+        }
+    }
+
+    pub fn set_reviewed(&mut self, reviewed: bool) {
+        self.reviewed = reviewed;
+        if let Some(hash) = self.content_hash {
+            if reviewed {
+                self.reviewed_content_hashes.insert(hash);
+            } else {
+                self.reviewed_content_hashes.remove(&hash);
+            }
+        }
+    }
+
+    pub(crate) fn reviewed_hashes(&self) -> BTreeSet<u64> {
+        let mut hashes = self.reviewed_content_hashes.clone();
+        if let Some(hash) = self.content_hash {
+            if self.reviewed {
+                hashes.insert(hash);
+            } else {
+                hashes.remove(&hash);
+            }
+        }
+        hashes
+    }
+
+    fn has_file_reviewed_state(&self) -> bool {
+        self.reviewed
+            || self
+                .reviewed_content_hashes
+                .iter()
+                .any(|&hash| self.is_content_reviewed(hash))
     }
 
     pub fn comment_count(&self) -> usize {
@@ -143,7 +187,7 @@ pub struct ReviewSession {
 
 impl ReviewSession {
     fn file_review_is_invalidated(review: &FileReview, content_hash: u64) -> bool {
-        review.reviewed && review.content_hash != Some(content_hash)
+        review.reviewed && !review.is_content_reviewed(content_hash)
     }
 
     pub fn new(
@@ -172,25 +216,46 @@ impl ReviewSession {
         }
     }
 
+    /// Number of paths whose currently registered diff is marked reviewed.
+    /// Marks archived for other views do not count as progress on this one.
     pub fn reviewed_count(&self) -> usize {
         self.files.values().filter(|f| f.reviewed).count()
+    }
+
+    /// Whether a reviewed diff of a file can be shown again after another
+    /// diff of it was registered. Only commit and PR selections switch back to
+    /// an earlier view; worktree content that changed does not come back.
+    fn retains_archived_review_marks(&self) -> bool {
+        matches!(
+            self.diff_source,
+            SessionDiffSource::CommitRange
+                | SessionDiffSource::WorkingTreeAndCommits
+                | SessionDiffSource::StagedUnstagedAndCommits
+                | SessionDiffSource::PullRequest
+        )
     }
 
     pub fn has_reviewed_state(&self) -> bool {
         self.files
             .values()
-            .any(|file| file.reviewed || !file.reviewed_hunks.is_empty())
+            .any(|file| file.has_file_reviewed_state() || !file.reviewed_hunks.is_empty())
     }
 
     /// Registers a file in the session. Returns true if the file was previously
     /// reviewed but its content changed, causing reviewed status to be reset.
     pub fn add_file(&mut self, path: PathBuf, status: FileStatus, content_hash: u64) -> bool {
+        let retain_archived = self.retains_archived_review_marks();
         if let Some(review) = self.files.get_mut(&path) {
             let invalidated = Self::file_review_is_invalidated(review, content_hash);
-            review.content_hash = Some(content_hash);
-            if invalidated {
-                review.reviewed = false;
+            // Registering another view must not erase approval of the old one,
+            // nor transfer that approval to contents that have not been reviewed.
+            let mut hashes = review.reviewed_hashes();
+            review.reviewed = hashes.contains(&content_hash);
+            if !retain_archived {
+                hashes.retain(|&hash| hash == content_hash);
             }
+            review.reviewed_content_hashes = hashes;
+            review.content_hash = Some(content_hash);
             return invalidated;
         }
         self.files
@@ -336,10 +401,11 @@ impl ReviewSession {
             file.file_comments.clear();
             file.line_comments.clear();
             if scope == ClearScope::CommentsAndReviewed {
-                if file.reviewed || !file.reviewed_hunks.is_empty() {
+                if file.has_file_reviewed_state() || !file.reviewed_hunks.is_empty() {
                     unreviewed += 1;
                 }
                 file.reviewed = false;
+                file.reviewed_content_hashes.clear();
                 file.reviewed_hunks.clear();
             }
         }
@@ -1092,6 +1158,7 @@ mod tests {
                 line_comments: HashMap::new(),
                 reviewed_hunks: BTreeSet::new(),
                 content_hash: None,
+                reviewed_content_hashes: BTreeSet::new(),
             },
         );
 

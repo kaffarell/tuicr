@@ -195,7 +195,16 @@ Repository-managed agent integrations:
 **ReviewSession** (`src/model/review.rs`):
 
 - Persisted review state with `files: HashMap<PathBuf, FileReview>`
-- Each `FileReview` has: `reviewed: bool`, `reviewed_hunks: BTreeSet<String>`, `file_comments: Vec<Comment>`, `line_comments: HashMap<u32, Vec<Comment>>`
+- Each `FileReview` has: `reviewed: bool`, `reviewed_hunks: BTreeSet<String>`, `file_comments: Vec<Comment>`, `line_comments: HashMap<u32, Vec<Comment>>`, and `reviewed_content_hashes: BTreeSet<u64>`.
+- File-reviewed marks are retained per diff-content hash across commit/subrange
+  navigation and save/reopen. `reviewed` is the current `content_hash` flag;
+  `is_content_reviewed(hash)` also checks archived views. Use `set_reviewed` for
+  toggles. Old sessions default to an empty hash set and retain their current
+  boolean/hash mark. Saves/polling merge additions and removals per hash, not
+  bare booleans from unrelated views. `clear` removes all hashes; empty-session
+  cleanup includes archived file marks, but `reviewed_count` (progress) counts
+  only the current view. Archived hashes are kept only for commit-range and PR
+  sessions; worktree-only sessions drop them when the content changes.
 
 **ReviewStore** (`src/review_store.rs`):
 
